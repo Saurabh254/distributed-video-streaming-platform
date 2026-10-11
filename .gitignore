@@ -1,0 +1,186 @@
+# =========================================================
+# Environment variables and secrets
+# =========================================================
+.env
+.env.*
+!.env.example
+!.env.template
+!.env.sample
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.template
+!**/.env.sample
+
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+*.secret
+
+# =========================================================
+# Python
+# =========================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Packaging and build artifacts
+build/
+dist/
+wheels/
+*.egg
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+test-results/
+.pytype/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Python application logs
+*.log
+logs/
+
+# =========================================================
+# Next.js / Node.js
+# =========================================================
+node_modules/
+.next/
+out/
+build/
+dist/
+.turbo/
+.vercel/
+.netlify/
+
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
+
+# Keep Yarn configuration files needed by the project
+# Do not ignore .yarn/releases or .yarn/plugins globally.
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment-specific Next.js files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================================================
+# Docker / Docker Compose
+# =========================================================
+# Local overrides; commit an intentional override.example.yml
+docker-compose.override.yml
+docker-compose.*.override.yml
+compose.override.yaml
+compose.override.yml
+
+# Local Docker build artifacts
+.docker/
+docker-data/
+docker-volumes/
+
+# =========================================================
+# Databases and object storage
+# =========================================================
+*.sqlite
+*.sqlite3
+*.db
+
+# PostgreSQL dumps and backups
+*.dump
+*.backup
+*.sql.gz
+
+# Local object storage data
+minio-data/
+minio-storage/
+storage-data/
+
+# Valkey / Redis persistence
+dump.rdb
+appendonly.aof
+appendonlydir/
+
+# =========================================================
+# Observability: Grafana / Loki / Prometheus
+# =========================================================
+grafana-data/
+loki-data/
+prometheus-data/
+prometheus-tsdb/
+*.prom
+
+# =========================================================
+# IDEs and editors
+# =========================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*~
+
+# Vim / Neovim
+*.un~
+Session.vim
+.netrwhist
+
+# =========================================================
+# OS-generated files
+# =========================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# =========================================================
+# Temporary files
+# =========================================================
+tmp/
+temp/
+.cache/
+*.tmp
+*.temp
+*.orig
+*.rej
