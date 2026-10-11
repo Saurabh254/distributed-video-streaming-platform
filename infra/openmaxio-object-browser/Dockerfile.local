@@ -1,0 +1,23 @@
+# OpenMaxIO repository instructions: build the web app, then build the Go Console.
+FROM node:20-bookworm AS web-build
+RUN corepack enable && corepack prepare yarn@4.4.0 --activate
+WORKDIR /src
+COPY . .
+RUN cd web-app && yarn install && yarn build
+
+FROM golang:1.24-bookworm AS console-build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+COPY --from=web-build /src/web-app/build ./web-app/build
+RUN CGO_ENABLED=0 GO111MODULE=on go build -trimpath --tags=kqueue --ldflags "-s -w" -o /out/console ./cmd/console
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=console-build /out/console /usr/local/bin/console
+EXPOSE 9090
+ENTRYPOINT ["/usr/local/bin/console", "server"]
