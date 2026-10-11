@@ -10,16 +10,8 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.143.0",
     "pydantic-settings>=2.15.0",
+    "redis[asyncio]>=8.1.0",
+    "tenacity>=9.2.1",
 ]
 
-[project.scripts]
-auth-service = "auth_service:main"
 
-[build-system]
-requires = ["uv_build>=0.12.19,<0.13.0"]
-build-backend = "uv_build"
-
-[tool.uv.workspace]
-members = [
-    "video_service",
-]
