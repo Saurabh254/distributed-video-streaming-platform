@@ -1,9 +1,18 @@
-
 PORT ?= 8000
 HOST ?= 127.0.0.1
 
-.PHONY: run
+.PHONY: run format lint test
 
 run:
-	uv run uvicorn src.main:app --port $(PORT) --host $(HOST)
+	uv run uvicorn app.main:app --port $(PORT) --host $(HOST)
 
+format:
+	uv run ruff format .
+	uv run ruff check --fix .
+
+lint:
+	uv run ruff check .
+	uv run ruff format --check .
+
+test:
+	uv run pytest
