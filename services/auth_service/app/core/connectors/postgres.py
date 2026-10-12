@@ -79,7 +79,7 @@ class DatabaseManager:
             await pool.close()
             raise
 
-        self._pool = pool
+        self._pool = pool  # type: ignore
         logger.info(
             "Connected to PostgreSQL connection pool (min=%d, max=%d)",
             min_size,
