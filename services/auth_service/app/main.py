@@ -1,19 +1,18 @@
 import uvicorn
-from app.core.dependencies import RedisDep
-from services.auth_service.app.services.health_service import evaluate_system_health
+from fastapi import FastAPI
+
+from app.api.api import auth_app
+from app.api.routes.health import router as health_router
 from app.core.lifespan import lifespan
-from fastapi import FastAPI, status
-from fastapi.responses import JSONResponse
-from src import api
 
 app = FastAPI(
-    telemetry={"tracing": True}, title="fineshare", version="0.0.1", lifespan=lifespan
+    title="fineshare",
+    version="0.0.1",
+    lifespan=lifespan,
 )
 
+app.include_router(health_router)
+app.include_router(auth_app)
 
-
-
-
-app.mount("", api.auth_app)
 if __name__ == "__main__":
     uvicorn.run(app)

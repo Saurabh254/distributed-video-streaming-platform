@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Any
 
+from psycopg_pool import AsyncConnectionPool
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
@@ -13,21 +14,32 @@ async def check_redis(client: Redis) -> tuple[str, str]:
     try:
         await asyncio.wait_for(client.ping(), timeout=2.0)
         return "redis", "connected"
-    except (TimeoutError, RedisError, Exception) as exc:
+    except (TimeoutError, RedisError, Exception) as exc:  # noqa: BLE001
         logger.warning("Redis health check failed: %s", exc)
         return "redis", "disconnected"
 
 
 async def check_postgres(pg_conn: Any = None) -> tuple[str, str]:
-    """Check PostgreSQL connectivity (extensible for when Postgres connector is configured)."""
+    """Check PostgreSQL connectivity with a fail-fast timeout."""
     if pg_conn is None:
         return "postgres", "connected"
 
     try:
-        # Example when connection/session pool is ready:
-        # await pg_conn.execute("SELECT 1")
+        if isinstance(pg_conn, AsyncConnectionPool):
+            async with (
+                pg_conn.connection(timeout=2.0) as conn,
+                conn.cursor() as cur,
+            ):
+                await asyncio.wait_for(cur.execute("SELECT 1"), timeout=2.0)
+        elif hasattr(pg_conn, "validate_connection"):
+            await asyncio.wait_for(
+                pg_conn.validate_connection(timeout=2.0), timeout=2.0
+            )
+        else:
+            async with pg_conn.cursor() as cur:
+                await asyncio.wait_for(cur.execute("SELECT 1"), timeout=2.0)
         return "postgres", "connected"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning("PostgreSQL health check failed: %s", exc)
         return "postgres", "disconnected"
 

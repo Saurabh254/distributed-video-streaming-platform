@@ -15,7 +15,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from services.auth_service.app.core.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
