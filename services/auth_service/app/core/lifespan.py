@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from src.core.connectors.redis import redis_manager
+from services.auth_service.app.core.connectors.redis import redis_manager
 
 
 @asynccontextmanager

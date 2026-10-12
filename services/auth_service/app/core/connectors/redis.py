@@ -7,7 +7,6 @@ from redis.exceptions import (
 from redis.exceptions import (
     TimeoutError as RedisTimeoutError,
 )
-from src.core.config import settings
 from tenacity import (
     before_sleep_log,
     retry,
@@ -15,6 +14,8 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+from services.auth_service.app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
