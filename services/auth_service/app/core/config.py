@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     redis_dsn: RedisDsn
 
     pg_dsn: PostgresDsn
+    pg_pool_min_size: int = 4
+    pg_pool_max_size: int = 20
+    pg_pool_timeout: float = 30.0
+    pg_pool_max_idle: float = 300.0
 
     model_config = SettingsConfigDict(
         env_file=".env",
