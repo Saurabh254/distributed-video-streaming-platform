@@ -218,7 +218,6 @@ class AuthService:
         access_token_str: str | None = None,
     ) -> None:
         """Revoke refresh token and blacklist access token in Redis."""
-        # 1. Revoke specific refresh token if supplied, otherwise revoke all for user
         if refresh_token_str:
             try:
                 payload = decode_jwt(refresh_token_str)
@@ -232,7 +231,6 @@ class AuthService:
         else:
             await revoke_all_user_refresh_tokens(self._redis, user_id)
 
-        # 2. Blacklist access token until expiration
         if access_token_str:
             try:
                 payload = decode_jwt(access_token_str)

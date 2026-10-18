@@ -33,7 +33,7 @@ class AuthRepository:
             if user_row is None:
                 raise RuntimeError("Failed to create user record")
 
-            user_id = user_row["id"]
+            user_id = user_row["id"]  # type: ignore
 
             await cur.execute(
                 """

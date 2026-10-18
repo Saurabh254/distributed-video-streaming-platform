@@ -142,6 +142,39 @@ def test_auth_full_flow(unique_user_data):
         assert revoked_ref.status_code == 401
 
 
+def test_auth_cookie_flow(unique_user_data):
+    with TestClient(app) as client:
+        # 1. Login sets refresh_token cookie
+        reg_res = client.post("/api/v1/auth/register", json=unique_user_data)
+        assert reg_res.status_code == 201
+        assert "refresh_token" in reg_res.cookies
+
+        # 2. Refresh without JSON body (using cookie automatically)
+        ref_res = client.post("/api/v1/auth/refresh")
+        assert ref_res.status_code == 200
+        new_access_token = ref_res.json()["access_token"]
+        assert "refresh_token" in ref_res.cookies
+
+        # 3. Access /me with new access token
+        me_res = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {new_access_token}"},
+        )
+        assert me_res.status_code == 200
+
+        # 4. Logout using cookie and Bearer header
+        logout_res = client.post(
+            "/api/v1/auth/logout",
+            headers={"Authorization": f"Bearer {new_access_token}"},
+        )
+        assert logout_res.status_code == 200
+        # Cookie is cleared (set to empty or deleted)
+        assert (
+            client.cookies.get("refresh_token") is None
+            or client.cookies.get("refresh_token") == ""
+        )
+
+
 @pytest.mark.asyncio
 async def test_two_separate_tables_verification(unique_user_data):
     from app.core.connectors.postgres import db_manager

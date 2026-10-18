@@ -52,7 +52,10 @@ AuthResponse = TokenResponse
 
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Field(..., description="Valid JWT refresh token")
+    refresh_token: str | None = Field(
+        default=None,
+        description="Valid JWT refresh token (optional if provided in cookie)",
+    )
 
 
 class LogoutRequest(BaseModel):

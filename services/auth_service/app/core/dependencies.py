@@ -120,7 +120,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id = payload.get("sub")
+    user_id = str(payload.get("sub"))
     repo = AuthRepository(db_conn)
     user = await repo.get_user_by_id(user_id)
     if not user or not user["is_active"]:
