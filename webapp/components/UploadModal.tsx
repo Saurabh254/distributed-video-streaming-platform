@@ -2,7 +2,16 @@
 
 import React, { useRef, useState } from "react";
 import { CheckCircle2, Film, Loader2, Upload, X } from "lucide-react";
-import { CATEGORIES } from "@/lib/data";
+const UPLOAD_CATEGORIES = [
+  "General",
+  "Distributed Systems",
+  "Transcoding & AV1",
+  "Edge Architecture",
+  "Low Latency HLS",
+  "Cloud Infrastructure",
+  "Cinema & 4K",
+  "Live Events",
+];
 import {
   completeVideoUpload,
   initiateVideoUpload,
@@ -282,7 +291,7 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-md border border-neutral-800 bg-black px-3 py-1.5 text-neutral-200 focus:border-neutral-600 focus:outline-none disabled:opacity-50"
               >
-                {CATEGORIES.filter((c) => c !== "All").map((c) => (
+                {UPLOAD_CATEGORIES.map((c) => (
                   <option key={c} value={c} className="bg-neutral-950 text-neutral-200">
                     {c}
                   </option>

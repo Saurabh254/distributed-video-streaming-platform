@@ -1,69 +1,72 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Plus, Video as VideoIcon } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { VideoCard } from "@/components/VideoCard";
 import { UploadModal } from "@/components/UploadModal";
-import { CATEGORIES, MOCK_VIDEOS } from "@/lib/data";
 import { Video } from "@/lib/types";
-import { fetchCatalogVideos, mapCatalogItemToVideo } from "@/lib/catalog-api";
+import {
+  fetchCatalogVideos,
+  fetchCategories,
+  mapCatalogItemToVideo,
+} from "@/lib/catalog-api";
 
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [categories, setCategories] = useState<string[]>(["All"]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [catalogVideos, setCatalogVideos] = useState<Video[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch real categories from database
   useEffect(() => {
-    let isCancelled = false;
-    async function loadCatalog() {
+    async function loadCategories() {
       try {
-        setIsLoading(true);
-        const data = await fetchCatalogVideos({
-          category: selectedCategory === "All" ? undefined : selectedCategory,
-          q: searchQuery.trim() || undefined,
-        });
-        if (!isCancelled && data.items && data.items.length > 0) {
-          setCatalogVideos(data.items.map(mapCatalogItemToVideo));
-        } else if (!isCancelled) {
-          setCatalogVideos([]);
+        const res = await fetchCategories();
+        if (res.categories && res.categories.length > 0) {
+          const names = res.categories
+            .map((c) => c.name)
+            .filter((name) => name && name.trim() !== "");
+          setCategories(["All", ...names]);
         }
       } catch (err) {
-        console.debug("Catalog service fetch error, falling back to mock:", err);
-        if (!isCancelled) setCatalogVideos([]);
-      } finally {
-        if (!isCancelled) setIsLoading(false);
+        console.debug("Could not load categories:", err);
       }
     }
+    loadCategories();
+  }, []);
 
-    loadCatalog();
-    return () => {
-      isCancelled = true;
-    };
+  // Fetch real videos from catalog service
+  const loadVideos = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchCatalogVideos({
+        category: selectedCategory === "All" ? undefined : selectedCategory,
+        q: searchQuery.trim() || undefined,
+        limit: 50,
+      });
+      if (data.items) {
+        setVideos(data.items.map(mapCatalogItemToVideo));
+      } else {
+        setVideos([]);
+      }
+    } catch (err) {
+      console.error("Failed to load catalog videos:", err);
+      setVideos([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [selectedCategory, searchQuery]);
 
-  // Combined video display: real catalog videos prioritized, mock videos as fallback if empty
-  const displayVideos = useMemo(() => {
-    if (catalogVideos.length > 0) {
-      return catalogVideos;
-    }
-
-    // Fallback to MOCK_VIDEOS if catalog service has 0 videos
-    return MOCK_VIDEOS.filter((video) => {
-      const matchesCategory =
-        selectedCategory === "All" || video.category === selectedCategory;
-      const matchesSearch =
-        searchQuery.trim() === "" ||
-        video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        video.channel.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-  }, [catalogVideos, selectedCategory, searchQuery]);
+  useEffect(() => {
+    loadVideos();
+  }, [loadVideos]);
 
   return (
     <div className="min-h-screen bg-black text-neutral-200 flex flex-col font-sans">
-      {/* Minimal Header */}
+      {/* Header */}
       <Navbar
         onOpenUpload={() => setIsUploadOpen(true)}
         searchQuery={searchQuery}
@@ -71,9 +74,9 @@ export default function DashboardPage() {
       />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
-        {/* Minimal Categories / Filters */}
+        {/* Dynamic Categories / Filters */}
         <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 border-b border-neutral-900 no-scrollbar">
-          {CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
@@ -89,7 +92,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Video Grid */}
-        {isLoading && catalogVideos.length === 0 ? (
+        {isLoading ? (
           <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse space-y-3">
@@ -99,20 +102,41 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        ) : displayVideos.length > 0 ? (
+        ) : videos.length > 0 ? (
           <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-            {displayVideos.map((video) => (
+            {videos.map((video) => (
               <VideoCard key={video.id} video={video} />
             ))}
           </div>
         ) : (
-          <div className="py-20 text-center text-xs text-neutral-500">
-            No videos found.
+          <div className="py-24 flex flex-col items-center justify-center text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-neutral-500 mb-3">
+              <VideoIcon className="h-6 w-6" />
+            </div>
+            <h3 className="text-sm font-medium text-neutral-300">No videos found</h3>
+            <p className="mt-1 text-xs text-neutral-500 max-w-sm">
+              {searchQuery
+                ? `No videos matched "${searchQuery}". Try a different keyword.`
+                : "No uploaded videos in this category yet. Be the first to share one!"}
+            </p>
+            <button
+              onClick={() => setIsUploadOpen(true)}
+              className="mt-4 flex items-center gap-1.5 rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-black hover:bg-white transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Upload Video</span>
+            </button>
           </div>
         )}
       </main>
 
-      <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} />
+      <UploadModal
+        isOpen={isUploadOpen}
+        onClose={() => {
+          setIsUploadOpen(false);
+          loadVideos();
+        }}
+      />
     </div>
   );
 }

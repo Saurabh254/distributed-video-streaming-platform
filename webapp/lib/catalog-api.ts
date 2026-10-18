@@ -39,24 +39,41 @@ export interface CategoryItem {
   video_count: number;
 }
 
+export function formatRelativeTime(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diffSec < 60) return "Just now";
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    if (diffSec < 604800) return `${Math.floor(diffSec / 86400)}d ago`;
+    return date.toLocaleDateString();
+  } catch {
+    return "Recent";
+  }
+}
+
 export function mapCatalogItemToVideo(item: CatalogVideoItem): Video {
   return {
     id: item.id,
     title: item.title,
     description: item.description || "",
-    thumbnail:
-      item.thumbnail_url ||
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1280&q=80",
+    thumbnail: item.thumbnail_url || "",
     videoUrl: `/video?id=${item.id}`,
     duration: item.duration || "0:00",
     durationSeconds: item.duration_seconds || 0,
     views: item.views_count || 0,
-    uploadedAt: item.uploaded_at || "Recent",
+    uploadedAt: formatRelativeTime(item.created_at),
     likes: item.likes_count || 0,
     channel: {
       name: item.channel.name,
       handle: item.channel.handle,
-      avatar: item.channel.avatar,
+      avatar:
+        item.channel.avatar ||
+        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+          item.channel.name
+        )}`,
       subscribers: item.channel.subscribers || "1K",
       verified: item.channel.verified || false,
     },
