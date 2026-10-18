@@ -9,6 +9,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { UploadModal } from "@/components/UploadModal";
 import { MOCK_VIDEOS, MOCK_COMMENTS } from "@/lib/data";
 import { Comment } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
 
 function VideoPageContent() {
   const searchParams = useSearchParams();
@@ -24,7 +25,7 @@ function VideoPageContent() {
     return MOCK_VIDEOS.filter((v) => v.id !== currentVideo.id);
   }, [currentVideo]);
 
-  // State
+  const { user } = useAuth();
   const [likes, setLikes] = useState(currentVideo.likes);
   const [isLiked, setIsLiked] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -57,8 +58,8 @@ function VideoPageContent() {
     setComments([
       {
         id: `c-${Date.now()}`,
-        author: "You",
-        handle: "@you",
+        author: user?.username || "You",
+        handle: user ? `@${user.username}` : "@you",
         avatar: "",
         content: newComment.trim(),
         timestamp: "Just now",
