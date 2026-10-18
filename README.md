@@ -305,10 +305,52 @@ pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to access the application.
+Open [http://localhost:4000](http://localhost:4000) to access the application.
+
+---
+
+## Observability & Monitoring (Grafana + Loki)
+
+The platform includes a production-grade observability stack featuring auto-provisioned Grafana dashboards, log aggregation with Loki, and real-time log shipping via Promtail.
+
+### Infrastructure Access
+
+| Component | Endpoint | Credentials | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Grafana** | [http://localhost:3000](http://localhost:3000) | `admin` / `12345678` | Metrics, logs, worker queues, and playback telemetry |
+| **Loki** | [http://localhost:3100](http://localhost:3100) | None (Internal) | Centralized structured log store and LogQL engine |
+| **Promtail** | [http://localhost:9080](http://localhost:9080) | None (Internal) | Agent streaming `/infra/logs/*.log` to Loki |
+| **MinIO Console** | [http://localhost:9001](http://localhost:9001) | `localminio` / `12345678` | S3 Buckets management |
+
+### Provisioned Dashboards
+
+All dashboards are pre-configured in `infra/grafana/dashboards/` and auto-loaded on container startup:
+
+1. **AuraStream - Platform Overview** (`/d/aurastream-platform-overview`)
+   - High-level platform KPIs: Registered users, videos ingested, HLS ready count, total platform views.
+   - Live cross-service request rate (req/s), error distribution, and log level breakdown.
+   - Unified cross-service live log stream.
+
+2. **AuraStream - Microservices Logs & Traces** (`/d/aurastream-microservices-logs`)
+   - Interactive log analysis with dropdown filters for `service` (`auth-service`, `video-service`, `catalog-service`, `playback-service`, `video-worker`, `video-dispatcher`).
+   - Log level filtering (`INFO`, `WARN`, `ERROR`, `DEBUG`) and keyword search.
+   - Real-time LogQL stream with parsed JSON metadata.
+
+3. **AuraStream - Video Processing Pipeline & Workers** (`/d/aurastream-pipeline-workers`)
+   - Media pipeline tracking: Active transcoding jobs, completed HLS videos, failed processing counts.
+   - Redis Stream event throughput and Dramatiq worker execution rates.
+   - Video processing registry table (video titles, resolutions, durations, HLS status).
+   - Dedicated Dramatiq & Dispatcher worker log stream.
+
+4. **AuraStream - Video Streaming & Telemetry** (`/d/aurastream-streaming-telemetry`)
+   - Video engagement analytics: Total plays, watch progress %, completed sessions, active viewers (last 15m).
+   - Top catalog videos ranked by views and likes.
+   - Recent playback heartbeat sessions with real-time watch percentage progress gauges.
+   - Dedicated playback service log stream.
 
 ---
 
 ## License
 
 Personal and educational project.
+
