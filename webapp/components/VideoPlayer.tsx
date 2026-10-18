@@ -2,16 +2,30 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
+import Hls from "hls.js";
 import { Video } from "@/lib/types";
+import { sendPlaybackHeartbeat } from "@/lib/playback-api";
 
 interface VideoPlayerProps {
   video: Video;
+  streamUrl?: string;
+  sessionId?: string;
+  resumePosition?: number;
   onEnded?: () => void;
+  onViewCountUpdate?: (newViews: number) => void;
 }
 
-export function VideoPlayer({ video, onEnded }: VideoPlayerProps) {
+export function VideoPlayer({
+  video,
+  streamUrl,
+  sessionId,
+  resumePosition = 0,
+  onEnded,
+  onViewCountUpdate,
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -22,6 +36,90 @@ export function VideoPlayer({ video, onEnded }: VideoPlayerProps) {
   const [showControls, setShowControls] = useState(true);
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialSeekDoneRef = useRef(false);
+
+  const activeUrl = streamUrl || video.videoUrl;
+
+  // Initialize HLS or Native playback
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    if (!videoEl || !activeUrl) return;
+
+    initialSeekDoneRef.current = false;
+
+    // Destroy existing HLS instance if any
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    const isHlsStream = activeUrl.includes(".m3u8") || activeUrl.includes("/hls/");
+
+    if (isHlsStream && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+      hlsRef.current = hls;
+
+      hls.loadSource(activeUrl);
+      hls.attachMedia(videoEl);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (resumePosition > 0 && !initialSeekDoneRef.current) {
+          videoEl.currentTime = resumePosition;
+          initialSeekDoneRef.current = true;
+        }
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hls.recoverMediaError();
+              break;
+            default:
+              hls.destroy();
+              break;
+          }
+        }
+      });
+    } else if (videoEl.canPlayType("application/vnd.apple.mpegurl") || !isHlsStream) {
+      // Native Safari HLS or regular MP4 stream
+      videoEl.src = activeUrl;
+      videoEl.load();
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [activeUrl, resumePosition]);
+
+  // Periodic Telemetry Heartbeat
+  useEffect(() => {
+    if (!sessionId || !isPlaying) return;
+
+    const interval = setInterval(async () => {
+      const current = videoRef.current?.currentTime || 0;
+      const total = videoRef.current?.duration || duration;
+      try {
+        const res = await sendPlaybackHeartbeat(video.id, sessionId, current, total, false);
+        if (res.view_recorded && onViewCountUpdate) {
+          onViewCountUpdate(res.current_views);
+        }
+      } catch (err) {
+        console.debug("Heartbeat ping failed:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [sessionId, isPlaying, video.id, duration, onViewCountUpdate]);
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -34,7 +132,7 @@ export function VideoPlayer({ video, onEnded }: VideoPlayerProps) {
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
-      videoRef.current.play();
+      videoRef.current.play().catch(() => {});
       setIsPlaying(true);
     } else {
       videoRef.current.pause();
@@ -56,10 +154,10 @@ export function VideoPlayer({ video, onEnded }: VideoPlayerProps) {
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
+      containerRef.current.requestFullscreen().catch(() => {});
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen();
+      document.exitFullscreen().catch(() => {});
       setIsFullscreen(false);
     }
   }, []);
@@ -103,12 +201,17 @@ export function VideoPlayer({ video, onEnded }: VideoPlayerProps) {
     >
       <video
         ref={videoRef}
-        src={video.videoUrl}
         poster={video.thumbnail}
         onTimeUpdate={() => videoRef.current && setCurrentTime(videoRef.current.currentTime)}
-        onLoadedMetadata={() =>
-          videoRef.current && setDuration(videoRef.current.duration || video.durationSeconds || 100)
-        }
+        onLoadedMetadata={() => {
+          if (videoRef.current) {
+            setDuration(videoRef.current.duration || video.durationSeconds || 100);
+            if (resumePosition > 0 && !initialSeekDoneRef.current) {
+              videoRef.current.currentTime = resumePosition;
+              initialSeekDoneRef.current = true;
+            }
+          }
+        }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => {
