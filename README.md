@@ -22,10 +22,10 @@ flowchart TD
     end
 
     subgraph Services ["Backend Microservices"]
-        AuthSvc["auth_service (FastAPI :8001)<br/>JWT, HttpOnly Cookies, Sessions"]
-        VideoSvc["video_service (FastAPI :8002)<br/>Uploads, Metadata, Lifecycle"]
-        CatalogSvc["catalog_service (Upcoming)<br/>Search, Recommendations"]
-        PlaybackSvc["playback_service (Upcoming)<br/>Tokenized HLS Delivery"]
+        AuthSvc["auth_service (FastAPI :8000)<br/>JWT, HttpOnly Cookies, Sessions"]
+        VideoSvc["video_service (FastAPI :8001)<br/>Uploads, Metadata, Lifecycle"]
+        CatalogSvc["catalog_service (FastAPI :8002)<br/>Discovery, Search, Caching"]
+        PlaybackSvc["playback_service (FastAPI :8003)<br/>HLS Session Token, Telemetry, Views"]
     end
 
     subgraph DataPlane ["Storage & Data Plane"]
@@ -52,6 +52,8 @@ flowchart TD
     %% Gateway Routing
     NextGateway -->|"/api/auth/*"| AuthSvc
     NextGateway -->|"/api/videos/*"| VideoSvc
+    NextGateway -->|"/api/catalog/*"| CatalogSvc
+    NextGateway -->|"/api/playback/*"| PlaybackSvc
 
     %% Service Data Connections
     AuthSvc --> PostgresAuth
@@ -176,8 +178,12 @@ distributed-video-streaming-platform/
 │   │   │   ├── services/       # Video upload business logic & S3 verification
 │   │   │   └── workers/        # Dramatiq actors, Redis stream dispatcher, FFmpeg
 │   │   └── tests/              # 13 unit and pipeline integration tests
-│   ├── catalog_service/        # Metadata & search service (planned)
-│   └── playback_service/       # Streaming session & delivery service (planned)
+│   ├── catalog_service/        # FastAPI Video Catalog & Discovery Service (:8002)
+│   │   ├── app/                # Catalog queries, search, and Redis caching
+│   │   └── tests/              # 7 unit and integration tests
+│   └── playback_service/       # FastAPI Playback Session & Streaming Service (:8003)
+│       ├── app/                # HLS manifest resolution, heartbeat, and view counters
+│       └── tests/              # 8 unit and integration tests
 └── webapp/                     # Next.js 16 (React 19, Tailwind CSS)
     ├── app/
     │   ├── api/auth/           # API Gateway routes for authentication
@@ -261,6 +267,30 @@ cp .env.example .env
 uv sync
 
 # Run the FastAPI Auth Server (Port 8001)
+make run
+
+#### Catalog Service
+
+```bash
+cd services/catalog_service
+cp .env.example .env
+uv sync
+
+# Run the FastAPI Catalog Server (Port 8002)
+make run
+
+# Run tests
+make test
+```
+
+#### Playback Service
+
+```bash
+cd services/playback_service
+cp .env.example .env
+uv sync
+
+# Run the FastAPI Playback Server (Port 8003)
 make run
 
 # Run tests
