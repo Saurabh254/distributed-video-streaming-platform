@@ -1,17 +1,35 @@
 [project]
 name = "catalog-service"
 version = "0.1.0"
-description = "Add your description here"
+description = "Video Catalog & Metadata Discovery Service"
 readme = "README.md"
 authors = [
     { name = "saurabh254", email = "sauravvishwakarma030@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi[standard]>=0.143.0",
+    "psycopg[binary,pool]>=3.3.6",
+    "pydantic-settings>=2.15.0",
+    "pyjwt>=2.9.0",
+    "redis>=8.1.0",
+    "rich>=13.7.0",
+    "tenacity>=9.2.1",
+]
 
-[project.scripts]
-catalog-service = "catalog_service:main"
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.0",
+]
 
-[build-system]
-requires = ["uv_build>=0.12.19,<0.13.0"]
-build-backend = "uv_build"
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+[tool.ruff.lint]
+ignore = ["BLE001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
