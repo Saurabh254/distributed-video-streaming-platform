@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class PlaybackRepository:
-    """PostgreSQL repository for playback metadata, view counting, and watch history."""
+    """PostgreSQL repository for playback metadata, view counting, and watch history using psycopg."""
 
     def __init__(self, conn: Any) -> None:
         self._conn = conn
@@ -30,7 +30,7 @@ class PlaybackRepository:
                 thumbnail_url,
                 COALESCE(views_count, 0) AS views_count
             FROM videos
-            WHERE id = $1
+            WHERE id = %s
             LIMIT 1
         """
         async with self._conn.cursor() as cur:
@@ -43,7 +43,7 @@ class PlaybackRepository:
             UPDATE videos
             SET views_count = COALESCE(views_count, 0) + 1,
                 updated_at = NOW()
-            WHERE id = $1
+            WHERE id = %s
             RETURNING views_count
         """
         async with self._conn.cursor() as cur:
@@ -67,7 +67,7 @@ class PlaybackRepository:
                 duration_seconds, completed, updated_at, created_at
             )
             VALUES (
-                gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), NOW()
+                gen_random_uuid(), %s, %s, %s, %s, %s, %s, NOW(), NOW()
             )
             ON CONFLICT DO NOTHING
         """
@@ -93,7 +93,7 @@ class PlaybackRepository:
         query = """
             SELECT last_position_seconds, completed
             FROM playback_history
-            WHERE user_id = $1 AND video_id = $2
+            WHERE user_id = %s AND video_id = %s
             ORDER BY updated_at DESC
             LIMIT 1
         """

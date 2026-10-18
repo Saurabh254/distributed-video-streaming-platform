@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class CatalogRepository:
-    """Asynchronous PostgreSQL repository for video catalog queries."""
+    """Asynchronous PostgreSQL repository for video catalog queries using psycopg."""
 
     def __init__(self, conn: Any) -> None:
         self._conn = conn
@@ -20,18 +20,18 @@ class CatalogRepository:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Query videos joined with user/creator information."""
-        conditions = ["1=1"]
+        conditions = ["v.status != 'pending_upload'"]
         params: list[Any] = []
 
         if category and category.lower() != "all":
             params.append(category)
-            conditions.append(f"LOWER(v.category) = LOWER(${len(params)})")
+            conditions.append("LOWER(v.category) = LOWER(%s)")
 
         if search and search.strip():
             term = f"%{search.strip()}%"
-            params.append(term)
+            params.extend([term, term, term])
             conditions.append(
-                f"(v.title ILIKE ${len(params)} OR v.description ILIKE ${len(params)} OR u.username ILIKE ${len(params)})"
+                "(v.title ILIKE %s OR v.description ILIKE %s OR u.username ILIKE %s)"
             )
 
         where_clause = " AND ".join(conditions)
@@ -43,8 +43,6 @@ class CatalogRepository:
             order_by = "v.duration_seconds DESC, v.created_at DESC"
 
         params.extend([limit, offset])
-        limit_param = len(params) - 1
-        offset_param = len(params)
 
         query = f"""
             SELECT
@@ -68,7 +66,7 @@ class CatalogRepository:
             LEFT JOIN users u ON v.user_id = u.id
             WHERE {where_clause}
             ORDER BY {order_by}
-            LIMIT ${limit_param} OFFSET ${offset_param}
+            LIMIT %s OFFSET %s
         """
 
         async with self._conn.cursor() as cur:
@@ -81,18 +79,18 @@ class CatalogRepository:
         search: str | None = None,
     ) -> int:
         """Count total videos matching filter criteria."""
-        conditions = ["1=1"]
+        conditions = ["v.status != 'pending_upload'"]
         params: list[Any] = []
 
         if category and category.lower() != "all":
             params.append(category)
-            conditions.append(f"LOWER(v.category) = LOWER(${len(params)})")
+            conditions.append("LOWER(v.category) = LOWER(%s)")
 
         if search and search.strip():
             term = f"%{search.strip()}%"
-            params.append(term)
+            params.extend([term, term, term])
             conditions.append(
-                f"(v.title ILIKE ${len(params)} OR v.description ILIKE ${len(params)} OR u.username ILIKE ${len(params)})"
+                "(v.title ILIKE %s OR v.description ILIKE %s OR u.username ILIKE %s)"
             )
 
         where_clause = " AND ".join(conditions)
@@ -130,7 +128,7 @@ class CatalogRepository:
                 u.email
             FROM videos v
             LEFT JOIN users u ON v.user_id = u.id
-            WHERE v.id = $1
+            WHERE v.id = %s
             LIMIT 1
         """
         async with self._conn.cursor() as cur:
@@ -144,14 +142,15 @@ class CatalogRepository:
         limit: int = 6,
     ) -> list[dict[str, Any]]:
         """Retrieve related videos (same category or latest, excluding current video)."""
+        conditions = ["v.id != %s", "v.status != 'pending_upload'"]
         params: list[Any] = [str(video_id)]
-        category_condition = ""
+
         if category:
             params.append(category)
-            category_condition = f"AND LOWER(v.category) = LOWER(${len(params)})"
+            conditions.append("LOWER(v.category) = LOWER(%s)")
 
         params.append(limit)
-        limit_param = len(params)
+        where_clause = " AND ".join(conditions)
 
         query = f"""
             SELECT
@@ -173,9 +172,9 @@ class CatalogRepository:
                 u.email
             FROM videos v
             LEFT JOIN users u ON v.user_id = u.id
-            WHERE v.id != $1 {category_condition}
+            WHERE {where_clause}
             ORDER BY v.created_at DESC
-            LIMIT ${limit_param}
+            LIMIT %s
         """
         async with self._conn.cursor() as cur:
             await cur.execute(query, params)
@@ -188,6 +187,7 @@ class CatalogRepository:
                 COALESCE(category, 'General') AS name,
                 COUNT(*) AS video_count
             FROM videos
+            WHERE status != 'pending_upload'
             GROUP BY COALESCE(category, 'General')
             ORDER BY video_count DESC
         """
