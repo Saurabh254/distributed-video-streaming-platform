@@ -155,7 +155,10 @@ async def run_standalone_dispatcher() -> None:
 
 
 if __name__ == "__main__":
+    from app.workers.actors import setup_worker_logging
+
     logging.basicConfig(level=logging.INFO)
+    setup_worker_logging("video_dispatcher")
     try:
         asyncio.run(run_standalone_dispatcher())
     except KeyboardInterrupt:

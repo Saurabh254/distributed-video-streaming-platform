@@ -98,8 +98,10 @@ class StructuredJSONFormatter(logging.Formatter):
 
         log_entry: dict[str, Any] = {
             "timestamp": timestamp,
+            "time": timestamp,
             "level": record.levelname,
             "logger": record.name,
+            "name": record.name,
             "message": record.getMessage(),
             "service": getattr(record, "service", settings.service_name),
             "environment": getattr(record, "environment", settings.app_env),
@@ -292,10 +294,40 @@ def setup_logging() -> None:
 
     root_logger.addHandler(stream_handler)
 
+    # File handler for log aggregation (Promtail / Loki)
+    import os
+    from logging.handlers import RotatingFileHandler
+
+    log_dir = os.environ.get(
+        "LOG_DIR",
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "infra",
+                "logs",
+            )
+        ),
+    )
+    if os.path.exists(log_dir):
+        file_path = os.path.join(
+            log_dir, f"{settings.service_name.replace('-', '_')}.log"
+        )
+        file_handler = RotatingFileHandler(
+            file_path, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        )
+        file_handler.setLevel(log_level)
+        file_handler.addFilter(ContextualFilter())
+        file_handler.setFormatter(StructuredJSONFormatter())
+        root_logger.addHandler(file_handler)
+
     # Route uvicorn server logs through our handler
     for uvicorn_logger_name in ("uvicorn", "uvicorn.error"):
         u_logger = logging.getLogger(uvicorn_logger_name)
-        u_logger.handlers = [stream_handler]
+        u_logger.handlers = root_logger.handlers
         u_logger.propagate = False
 
     # Suppress raw unformatted uvicorn.access logs in favor of RequestLoggingMiddleware

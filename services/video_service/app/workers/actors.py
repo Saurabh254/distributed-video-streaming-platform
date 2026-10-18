@@ -20,7 +20,53 @@ from app.workers.image_processor import (
     generate_responsive_thumbnails,
 )
 
+import os
+from logging.handlers import RotatingFileHandler
+from app.core.logging import StructuredJSONFormatter
+
 logger = logging.getLogger(__name__)
+
+def setup_worker_logging(worker_name: str = "video_worker") -> None:
+    log_dir = os.environ.get(
+        "LOG_DIR",
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "infra",
+                "logs",
+            )
+        ),
+    )
+    if os.path.exists(log_dir):
+        file_path = os.path.join(log_dir, f"{worker_name}.log")
+        file_handler = RotatingFileHandler(
+            file_path, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        )
+        file_handler.setLevel(logging.INFO)
+
+        class WorkerContextFilter(logging.Filter):
+            def filter(self, record: logging.LogRecord) -> bool:
+                record.service = worker_name
+                record.environment = settings.app_env
+                return True
+
+        file_handler.addFilter(WorkerContextFilter())
+        file_handler.setFormatter(StructuredJSONFormatter())
+
+        root_logger = logging.getLogger()
+        if not any(
+            isinstance(h, RotatingFileHandler)
+            and getattr(h, "baseFilename", "") == file_path
+            for h in root_logger.handlers
+        ):
+            root_logger.addHandler(file_handler)
+
+setup_worker_logging("video_worker")
+
 
 
 def get_sync_s3_client() -> Any:
