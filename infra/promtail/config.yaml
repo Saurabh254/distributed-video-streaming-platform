@@ -1,0 +1,35 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Scrape log files from all microservices and workers
+  - job_name: aurastream-services
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: aurastream
+          __path__: /var/log/services/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            message: message
+            name: name
+            time: time
+            timestamp: timestamp
+            service: service
+      - labels:
+          level:
+          service:
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+

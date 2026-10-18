@@ -1,0 +1,167 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Service Traffic & Error Trends",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "Log Rate by Level ($service)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 1 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (level) (rate({service=~\"$service\", level=~\"$level\"} |= \"$search\" [1m]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "unit": "logs/s"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Error & Critical Events ($service)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "count_over_time({service=~\"$service\", level=~\"ERROR|CRITICAL\"} |= \"$search\" [$__range])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "background"
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 101,
+      "title": "Detailed Log Stream & Tracing",
+      "type": "row"
+    },
+    {
+      "id": 3,
+      "title": "Filtered Microservice Logs",
+      "type": "logs",
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{service=~\"$service\", level=~\"$level\"} |= \"$search\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["aurastream", "microservices", "logs"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": ".*"
+        },
+        "name": "service",
+        "label": "Service",
+        "type": "custom",
+        "options": [
+          { "selected": true, "text": "All", "value": ".*" },
+          { "selected": false, "text": "auth-service", "value": "auth[-_]service" },
+          { "selected": false, "text": "video-service", "value": "video[-_]service" },
+          { "selected": false, "text": "catalog-service", "value": "catalog[-_]service" },
+          { "selected": false, "text": "playback-service", "value": "playback[-_]service" },
+          { "selected": false, "text": "video-worker", "value": "video[-_]worker" },
+          { "selected": false, "text": "video-dispatcher", "value": "video[-_]dispatcher" }
+        ],
+        "query": ".*,auth[-_]service,video[-_]service,catalog[-_]service,playback[-_]service,video[-_]worker,video[-_]dispatcher"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": ".*"
+        },
+        "name": "level",
+        "label": "Log Level",
+        "type": "custom",
+        "options": [
+          { "selected": true, "text": "All", "value": ".*" },
+          { "selected": false, "text": "INFO", "value": "INFO" },
+          { "selected": false, "text": "WARNING", "value": "WARNING|WARN" },
+          { "selected": false, "text": "ERROR", "value": "ERROR|CRITICAL" },
+          { "selected": false, "text": "DEBUG", "value": "DEBUG" }
+        ],
+        "query": ".*,INFO,WARNING|WARN,ERROR|CRITICAL,DEBUG"
+      },
+      {
+        "current": {
+          "value": ""
+        },
+        "name": "search",
+        "label": "Keyword Search",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "AuraStream - Microservices Logs & Traces",
+  "uid": "aurastream-microservices-logs",
+  "version": 1
+}

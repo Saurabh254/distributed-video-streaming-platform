@@ -66,6 +66,7 @@ dmypy.json
 # Python application logs
 *.log
 logs/
+!infra/logs/.gitkeep
 
 # =========================================================
 # Next.js / Node.js

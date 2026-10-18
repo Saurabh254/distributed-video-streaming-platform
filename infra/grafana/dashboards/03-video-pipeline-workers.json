@@ -1,0 +1,233 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Pipeline Pipeline & Transcoding Status",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "HLS Transcoding in Progress",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS active_jobs FROM videos WHERE hls_status = 'processing';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "orange", "value": 3 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Completed HLS Videos",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS completed_hls FROM videos WHERE hls_status = 'completed';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Pending Upload / Processing",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS pending_videos FROM videos WHERE status = 'pending_upload';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "yellow", "value": null }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Pipeline Failures",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS failed_jobs FROM videos WHERE status = 'failed' OR hls_status = 'failed';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "Worker Pipeline Activity & Events",
+      "type": "row"
+    },
+    {
+      "id": 5,
+      "title": "Worker Task Activity (Dramatiq & Stream Dispatcher)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 14, "x": 0, "y": 6 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (service) (rate({service=~\"video-worker|video-dispatcher|video-service\"}[1m]))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "lineInterpolation": "smooth"
+          },
+          "unit": "events/s"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Recent Video Processing Registry",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 10, "x": 14, "y": 6 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT title, status, hls_status, duration_seconds || 's' AS duration, to_char(created_at, 'HH24:MI:SS') AS created_at FROM videos ORDER BY created_at DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "Media Worker & Dispatcher Logs",
+      "type": "row"
+    },
+    {
+      "id": 7,
+      "title": "Real-Time Pipeline Logs (Workers & Dispatcher)",
+      "type": "logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 15 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{service=~\"video-worker|video-dispatcher\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["aurastream", "dramatiq", "workers", "hls"],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "AuraStream - Video Processing Pipeline & Workers",
+  "uid": "aurastream-pipeline-workers",
+  "version": 1
+}

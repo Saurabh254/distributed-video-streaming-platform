@@ -1,0 +1,399 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Playback Telemetry & Engagement KPIs",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "Total Video Views",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT COALESCE(SUM(views_count), 0) AS total_views FROM videos;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "purple", "value": null }]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Playback Sessions Logged",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS total_sessions FROM playback_history;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Completed Video Plays",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 10, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(*) AS completed_plays FROM playback_history WHERE completed = true;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Avg Watch Progress",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 14, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT COALESCE(ROUND(AVG(CASE WHEN duration_seconds > 0 THEN (last_position_seconds / duration_seconds) * 100 ELSE 0 END), 1), 0) AS avg_progress_pct FROM playback_history;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null },
+              { "color": "green", "value": 50 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Active Sessions (Last 15m)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT count(DISTINCT session_id) AS active_sessions FROM playback_history WHERE updated_at >= NOW() - INTERVAL '15 minutes';",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "text", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 200,
+      "title": "Stream Traffic & Real-Time Event Trends",
+      "type": "row"
+    },
+    {
+      "id": 6,
+      "title": "Playback Service Log & Event Rate (req/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 16, "x": 0, "y": 6 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (level) (rate({service=\"playback_service\"} [$__rate_interval]))",
+          "legendFormat": "{{level}} logs",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 15
+          },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Catalog & Video Service Event Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 6 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (service) (rate({service=~\"catalog_service|video_service\"} [$__rate_interval]))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 40
+          },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 300,
+      "title": "Top Ingested Videos & Real-Time View Count",
+      "type": "row"
+    },
+    {
+      "id": 8,
+      "title": "Top Catalog Videos by Views",
+      "type": "table",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT title, views_count, likes_count, duration_seconds, hls_status, updated_at FROM videos ORDER BY views_count DESC, created_at DESC LIMIT 15;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "views_count" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "hls_status" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "orange", "value": null },
+                    { "color": "green", "value": 1 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "title": "Recent Playback Heartbeat Sessions",
+      "type": "table",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "format": "table",
+          "rawSql": "SELECT v.title, p.session_id, p.last_position_seconds, p.duration_seconds, CASE WHEN p.duration_seconds > 0 THEN ROUND((p.last_position_seconds / p.duration_seconds) * 100, 1) ELSE 0 END AS progress_pct, p.completed, p.updated_at FROM playback_history p JOIN videos v ON p.video_id = v.id ORDER BY p.updated_at DESC LIMIT 15;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "progress_pct" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.cellOptions", "value": { "type": "gauge", "mode": "basic" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "orange", "value": null },
+                    { "color": "green", "value": 80 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "completed" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+      "id": 400,
+      "title": "Playback Live Logs & Heartbeat Streams",
+      "type": "row"
+    },
+    {
+      "id": 10,
+      "title": "Playback & Streaming Logs Stream",
+      "type": "logs",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 22 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{service=\"playback_service\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["aurastream", "playback", "streaming", "telemetry"],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
+  },
+  "timezone": "browser",
+  "title": "AuraStream - Video Streaming & Telemetry",
+  "uid": "aurastream-streaming-telemetry",
+  "version": 1
+}
