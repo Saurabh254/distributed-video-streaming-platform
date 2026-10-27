@@ -1,0 +1,29 @@
+{
+  "folders": [
+    {
+      "name": "auth-service",
+      "path": "auth_service"
+    },
+    {
+      "name": "catalog-service",
+      "path": "catalog_service"
+    },
+    {
+      "name": "playback-service",
+      "path": "playback_service"
+    },
+    {
+      "name": "video-service",
+      "path": "video_service"
+    },
+    {
+      "path": "../webapp"
+    },
+    {
+      "path": "../infra"
+    }
+  ],
+  "settings": {
+    "python.terminal.activateEnvironment": true
+  }
+}
