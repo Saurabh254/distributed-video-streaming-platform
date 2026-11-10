@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { CheckCircle2, Film, Loader2, Upload, X } from "lucide-react";
+import { CheckCircle2, Film, Loader2, Play, Sparkles, Upload, X } from "lucide-react";
+import Link from "next/link";
+import {
+  completeVideoUpload,
+  initiateVideoUpload,
+  uploadBinaryToPresignedUrl,
+  VideoUploadError,
+} from "@/lib/video-api";
+
 const UPLOAD_CATEGORIES = [
   "General",
   "Distributed Systems",
@@ -12,12 +20,6 @@ const UPLOAD_CATEGORIES = [
   "Cinema & 4K",
   "Live Events",
 ];
-import {
-  completeVideoUpload,
-  initiateVideoUpload,
-  uploadBinaryToPresignedUrl,
-  VideoUploadError,
-} from "@/lib/video-api";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -25,7 +27,14 @@ interface UploadModalProps {
   onUploadSuccess?: () => void;
 }
 
-type UploadPhase = "idle" | "initiating" | "uploading" | "completing" | "done";
+type UploadPhase =
+  | "idle"
+  | "initiating"
+  | "uploading"
+  | "completing"
+  | "processing"
+  | "published"
+  | "error";
 
 const ALLOWED_MIME_TYPES = [
   "video/mp4",
@@ -49,26 +58,47 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Distributed Systems");
   const [phase, setPhase] = useState<UploadPhase>("idle");
-  const [progressPercent, setProgressPercent] = useState(0);
+  const [uploadPercent, setUploadPercent] = useState(0);
+  const [processingPercent, setProcessingPercent] = useState(0);
+  const [stepDescription, setStepDescription] = useState("");
+  const [publishedVideoId, setPublishedVideoId] = useState<string | null>(null);
+  const [publishedData, setPublishedData] = useState<{
+    thumbnail_url?: string;
+    hls_master_playlist_url?: string;
+  } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   if (!isOpen) return null;
 
   const resetForm = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
     setSelectedFile(null);
     setTitle("");
     setDescription("");
     setCategory("Distributed Systems");
     setPhase("idle");
-    setProgressPercent(0);
+    setUploadPercent(0);
+    setProcessingPercent(0);
+    setStepDescription("");
+    setPublishedVideoId(null);
+    setPublishedData(null);
     setErrorMessage(null);
   };
 
   const handleClose = () => {
-    if (phase === "uploading" || phase === "initiating" || phase === "completing") {
-      if (!confirm("An upload is currently in progress. Are you sure you want to cancel?")) {
+    if (
+      phase === "uploading" ||
+      phase === "initiating" ||
+      phase === "completing" ||
+      phase === "processing"
+    ) {
+      if (!confirm("An upload/processing pipeline is active. Are you sure you want to exit?")) {
         return;
       }
     }
@@ -79,7 +109,6 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
   const handleFileChange = (file: File) => {
     setErrorMessage(null);
 
-    // Validate type
     const isAllowed =
       ALLOWED_MIME_TYPES.includes(file.type) ||
       /\.(mp4|mov|mkv|webm)$/i.test(file.name);
@@ -91,7 +120,6 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
       return;
     }
 
-    // Default title from filename without extension
     const baseName = file.name.replace(/\.[^/.]+$/, "");
     if (!title.trim()) {
       setTitle(baseName.replace(/[_-]/g, " "));
@@ -114,10 +142,11 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
 
     setErrorMessage(null);
     setPhase("initiating");
-    setProgressPercent(0);
+    setUploadPercent(0);
+    setProcessingPercent(0);
 
     try {
-      // Step 1: Request presigned S3 URL through API Gateway
+      // Step 1: Request presigned S3 upload URL
       const mimeType = selectedFile.type || "video/mp4";
       const initRes = await initiateVideoUpload({
         title: title.trim(),
@@ -128,27 +157,69 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
         fileSize: selectedFile.size,
       });
 
-      // Step 2: Direct upload to S3 / MinIO via presigned PUT URL
+      const videoId = initRes.video_id;
+      setPublishedVideoId(videoId);
+
+      // Step 2: Direct upload to S3 via presigned PUT URL
       setPhase("uploading");
       await uploadBinaryToPresignedUrl(
         initRes.upload_url,
         selectedFile,
         (percent) => {
-          setProgressPercent(percent);
+          setUploadPercent(percent);
         }
       );
 
       // Step 3: Complete and confirm upload
       setPhase("completing");
-      await completeVideoUpload(initRes.video_id);
+      await completeVideoUpload(videoId);
 
-      setPhase("done");
-      onUploadSuccess?.();
+      // Step 4: Subscribe to Server-Sent Events (SSE) for processing progression
+      setPhase("processing");
+      setStepDescription("Initializing media pipeline...");
 
-      setTimeout(() => {
-        resetForm();
-        onClose();
-      }, 1800);
+      const eventSource = new EventSource(`/api/videos/${videoId}/events`);
+      eventSourceRef.current = eventSource;
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.step) {
+            setStepDescription(data.step);
+          }
+          if (typeof data.progress === "number") {
+            setProcessingPercent(Math.round(data.progress));
+          }
+
+          const isTerminalSuccess =
+            data.status === "ready" ||
+            data.status === "completed" ||
+            data.event_type === "video.vod.completed";
+
+          const isTerminalFailed =
+            data.status === "failed" ||
+            data.event_type === "video.vod.failed";
+
+          if (isTerminalSuccess) {
+            setProcessingPercent(100);
+            setPublishedData(data.data || {});
+            setPhase("published");
+            eventSource.close();
+            onUploadSuccess?.();
+          } else if (isTerminalFailed) {
+            setErrorMessage(data.error || "Video processing encountered an error.");
+            setPhase("error");
+            eventSource.close();
+          }
+        } catch {
+          // Keep-alive comments or raw pings
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.warn("SSE connection status check:", err);
+      };
     } catch (err: unknown) {
       console.error("Upload error:", err);
       setPhase("idle");
@@ -163,7 +234,10 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
   };
 
   const isWorking =
-    phase === "initiating" || phase === "uploading" || phase === "completing";
+    phase === "initiating" ||
+    phase === "uploading" ||
+    phase === "completing" ||
+    phase === "processing";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -180,7 +254,7 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
           <div className="flex items-center gap-2">
             <Film className="h-4 w-4 text-neutral-400" />
             <h2 className="text-sm font-semibold text-neutral-200">
-              Upload Video
+              {phase === "published" ? "Video Published" : "Upload Video"}
             </h2>
           </div>
           <button
@@ -199,38 +273,83 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
           </div>
         )}
 
-        {/* Success State */}
-        {phase === "done" ? (
-          <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-            <CheckCircle2 className="h-10 w-10 text-emerald-400 animate-in zoom-in-50" />
-            <p className="text-sm font-medium text-neutral-200">
-              Uploaded successfully!
-            </p>
-            <p className="text-xs text-neutral-500 max-w-xs truncate">
-              {title}
-            </p>
+        {/* Published Success Screen */}
+        {phase === "published" ? (
+          <div className="py-6 text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-950/80 border border-emerald-800/80">
+              <CheckCircle2 className="h-7 w-7 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-neutral-100">
+                Published & Ready to Stream!
+              </h3>
+              <p className="mt-1 text-xs text-neutral-400">
+                &ldquo;{title}&rdquo; is processed into adaptive bitrate HLS with multi-resolution thumbnails.
+              </p>
+            </div>
+
+            {/* Thumbnail preview if available */}
+            {publishedData?.thumbnail_url && (
+              <div className="relative mx-auto h-32 w-56 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+                <img
+                  src={publishedData.thumbnail_url}
+                  alt="Thumbnail"
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                  <Play className="h-6 w-6 text-white/90 drop-shadow" />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  resetForm();
+                  onClose();
+                }}
+                className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-2 text-xs font-medium text-neutral-300 hover:bg-neutral-800"
+              >
+                Close
+              </button>
+              {publishedVideoId && (
+                <Link
+                  href={`/video?id=${publishedVideoId}`}
+                  onClick={() => {
+                    resetForm();
+                    onClose();
+                  }}
+                  className="flex items-center gap-1.5 rounded-md bg-emerald-500 px-4 py-2 text-xs font-medium text-black hover:bg-emerald-400 transition-colors"
+                >
+                  <Play className="h-3.5 w-3.5 fill-current" />
+                  <span>Watch Video</span>
+                </Link>
+              )}
+            </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
-            {/* File Dropzone / Picker */}
+          <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-xs">
+            {/* File Dropzone */}
             {!selectedFile ? (
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center justify-center rounded-lg border border-dashed border-neutral-800 bg-black/40 p-8 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900/30 cursor-pointer transition-colors"
+                className="flex flex-col items-center justify-center rounded-lg border border-dashed border-neutral-800 bg-neutral-900/30 p-6 text-center cursor-pointer hover:border-neutral-700 hover:bg-neutral-900/50 transition-colors"
               >
-                <Upload className="h-7 w-7 text-neutral-500 mb-2" />
-                <span className="font-medium text-neutral-300">
-                  Select or drag video file
-                </span>
-                <span className="mt-1 text-[11px] text-neutral-500">
-                  MP4, MOV, MKV, or WebM (up to 5GB)
-                </span>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 border border-neutral-800 mb-2">
+                  <Upload className="h-4 w-4 text-neutral-400" />
+                </div>
+                <p className="text-neutral-300 font-medium text-xs">
+                  Click to browse or drag and drop video
+                </p>
+                <p className="text-[11px] text-neutral-500 mt-1">
+                  MP4, MOV, WebM, or MKV (up to 5GB)
+                </p>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.mkv,.webm"
+                  accept="video/*,.mkv"
                   className="hidden"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
@@ -240,11 +359,11 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
                 />
               </div>
             ) : (
-              <div className="flex items-center justify-between rounded-md border border-neutral-800 bg-neutral-900/60 px-3.5 py-2.5">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Film className="h-5 w-5 text-neutral-400 shrink-0" />
-                  <div className="overflow-hidden">
-                    <p className="text-xs font-medium text-neutral-200 truncate">
+              <div className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900/40 p-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Film className="h-4 w-4 text-neutral-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-neutral-200 font-medium truncate">
                       {selectedFile.name}
                     </p>
                     <p className="text-[11px] text-neutral-500">
@@ -305,7 +424,7 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
                 Description (optional)
               </label>
               <textarea
-                rows={3}
+                rows={2}
                 placeholder="Brief summary of your video..."
                 value={description}
                 disabled={isWorking}
@@ -314,34 +433,55 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
               />
             </div>
 
-            {/* Active Upload Progress Bar */}
+            {/* Active Progress Bar & Live Status */}
             {isWorking && (
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-[11px] text-neutral-400">
+              <div className="space-y-2 pt-1 rounded-lg border border-neutral-800/80 bg-neutral-900/50 p-3">
+                <div className="flex items-center justify-between text-[11px] text-neutral-300">
                   <div className="flex items-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin text-neutral-300" />
-                    <span>
-                      {phase === "initiating" && "Requesting upload URL..."}
-                      {phase === "uploading" && `Uploading to storage: ${progressPercent}%`}
-                      {phase === "completing" && "Verifying upload..."}
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
+                    <span className="font-medium text-neutral-200">
+                      {phase === "initiating" && "Requesting upload credentials..."}
+                      {phase === "uploading" && `Uploading binary to storage (${uploadPercent}%)`}
+                      {phase === "completing" && "Verifying upload completion..."}
+                      {phase === "processing" && (stepDescription || "Processing video...")}
                     </span>
                   </div>
-                  {phase === "uploading" && <span>{progressPercent}%</span>}
+                  <span className="font-mono text-neutral-400">
+                    {phase === "uploading" && `${uploadPercent}%`}
+                    {phase === "processing" && `${processingPercent}%`}
+                  </span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
+
+                <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-900 border border-neutral-800">
                   <div
-                    className="h-full bg-neutral-200 transition-all duration-200"
+                    className={`h-full transition-all duration-300 ${
+                      phase === "processing"
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-400"
+                        : "bg-neutral-200"
+                    }`}
                     style={{
                       width: `${
                         phase === "initiating"
                           ? 10
+                          : phase === "uploading"
+                          ? uploadPercent
                           : phase === "completing"
-                          ? 95
-                          : progressPercent
+                          ? 98
+                          : Math.max(5, processingPercent)
                       }%`,
                     }}
                   />
                 </div>
+
+                {phase === "processing" && (
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500 pt-0.5">
+                    <span className="flex items-center gap-1 text-emerald-400/90">
+                      <Sparkles className="h-3 w-3" />
+                      Live pipeline event streaming via SSE
+                    </span>
+                    <span>Status: Processing</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -363,7 +503,9 @@ export function UploadModal({ isOpen, onClose, onUploadSuccess }: UploadModalPro
                 {isWorking ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Processing...</span>
+                    <span>
+                      {phase === "uploading" ? "Uploading..." : "Processing..."}
+                    </span>
                   </>
                 ) : (
                   <span>Publish</span>

@@ -150,6 +150,47 @@ class VideoRepository:
             row = await cur.fetchone()
             return dict(row) if row else None
 
+    async def update_all_results(
+        self,
+        video_id: UUID | str,
+        status: str,
+        thumbnail_url: str | None = None,
+        duration_seconds: float | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        hls_status: str | None = None,
+        hls_master_playlist_url: str | None = None,
+    ) -> dict[str, Any] | None:
+        query = """
+        UPDATE videos
+        SET status = %(status)s,
+            thumbnail_url = COALESCE(%(thumbnail_url)s, thumbnail_url),
+            duration_seconds = COALESCE(%(duration_seconds)s, duration_seconds),
+            width = COALESCE(%(width)s, width),
+            height = COALESCE(%(height)s, height),
+            hls_status = COALESCE(%(hls_status)s, hls_status),
+            hls_master_playlist_url = COALESCE(%(hls_master_playlist_url)s, hls_master_playlist_url),
+            updated_at = NOW()
+        WHERE id = %(id)s
+        RETURNING *;
+        """
+        async with self.conn.cursor() as cur:
+            await cur.execute(
+                query,
+                {
+                    "id": str(video_id),
+                    "status": status,
+                    "thumbnail_url": thumbnail_url,
+                    "duration_seconds": duration_seconds,
+                    "width": width,
+                    "height": height,
+                    "hls_status": hls_status,
+                    "hls_master_playlist_url": hls_master_playlist_url,
+                },
+            )
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
     async def list_by_user(
         self, user_id: UUID | str, limit: int = 50, offset: int = 0
     ) -> list[dict[str, Any]]:

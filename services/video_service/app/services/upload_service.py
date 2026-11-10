@@ -186,6 +186,15 @@ class UploadService:
                 "Failed to publish video.uploaded stream event to Redis: %s", exc
             )
 
+        # 7. Dispatch background Celery task for video processing
+        try:
+            from app.workers.tasks.video import process_video
+
+            process_video.delay(str(video_id))
+            logger.info("Enqueued Celery processing task for video %s", video_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to enqueue Celery process_video task: %s", exc)
+
         logger.info(
             "Video upload completed and verified: video_id=%s, size=%s",
             video_id,

@@ -52,7 +52,7 @@ export function Navbar({
           href="/"
           className="text-sm font-medium tracking-tight text-neutral-100 hover:text-white transition-colors"
         >
-          AuraStream
+          Stream
         </Link>
 
         {/* Minimal Search */}

@@ -131,7 +131,7 @@ class DatabaseManager:
     ) -> AsyncIterator[AsyncConnection]:
         """Context manager to borrow a connection from the pool and return it automatically."""
         if self._pool is None:
-            raise RuntimeError("PostgreSQL connection pool has not been initialized")
+            await self.start()
 
         async with self._pool.connection(timeout=timeout) as conn:
             yield conn

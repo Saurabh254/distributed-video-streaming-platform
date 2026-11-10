@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
     s3_presigned_expiry_seconds: int = 900  # 15 minutes
 
+    # Kafka Event Streaming
+    kafka_bootstrap_servers: str = "127.0.0.1:9092"
+    kafka_events_topic: str = "video-task-events"
+    kafka_vod_events_topic: str = "video-task-events"
+    kafka_live_events_topic: str = "video-task-events"
+    kafka_flush_timeout_seconds: float = 5.0
+
     # Upload restrictions (Default: 5GB)
     max_upload_size_bytes: int = 5 * 1024 * 1024 * 1024
     allowed_content_types: list[str] = [
